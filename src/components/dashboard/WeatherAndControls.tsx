@@ -1,19 +1,37 @@
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Thermometer, CloudRain, Droplets, Wifi, WifiOff, ToggleLeft, ToggleRight } from "lucide-react";
-import { useState } from "react";
-
-const nodes = [
-  { name: "Node 1 – Field A", online: true },
-  { name: "Node 2 – Field B", online: true },
-  { name: "Node 3 – Greenhouse", online: false },
-];
+import { Thermometer, CloudRain, Droplets, Wifi, WifiOff, ToggleLeft, ToggleRight, Loader2 } from "lucide-react";
+import { getZones } from "../../services/api";
 
 const WeatherAndControls = () => {
   const [autoMode, setAutoMode] = useState(true);
+  const [nodes, setNodes] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchNodes = async () => {
+      try {
+        const data = await getZones();
+        // Map backend zones to the node status format
+        // We assume that if a zone is returned by the API, the node is "Online"
+        const mappedNodes = data.map((zone: any) => ({
+          name: zone.name || `Node ${zone.id}`,
+          online: zone.is_active !== false, // Defaults to true if field is missing
+        }));
+        setNodes(mappedNodes);
+      } catch (error) {
+        console.error("Failed to fetch node status:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchNodes();
+  }, []);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {/* Weather Card */}
+      {/* Weather Card (Static until Weather API is added) */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -95,32 +113,38 @@ const WeatherAndControls = () => {
         className="rounded-2xl bg-card p-6 shadow-card"
       >
         <h3 className="font-display text-lg font-bold text-card-foreground mb-4">Node Status</h3>
-        <div className="space-y-3">
-          {nodes.map((node) => (
-            <div
-              key={node.name}
-              className="flex items-center justify-between rounded-xl bg-muted/50 p-3.5"
-            >
-              <div className="flex items-center gap-3">
-                {node.online ? (
-                  <Wifi className="h-4 w-4 text-primary" />
-                ) : (
-                  <WifiOff className="h-4 w-4 text-destructive" />
-                )}
-                <span className="text-sm font-medium text-card-foreground">{node.name}</span>
-              </div>
-              <span
-                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                  node.online
-                    ? "bg-accent text-accent-foreground"
-                    : "bg-destructive/10 text-destructive"
-                }`}
+        {loading ? (
+          <div className="flex items-center justify-center py-10">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {nodes.map((node, index) => (
+              <div
+                key={node.name || index}
+                className="flex items-center justify-between rounded-xl bg-muted/50 p-3.5"
               >
-                {node.online ? "Online" : "Offline"}
-              </span>
-            </div>
-          ))}
-        </div>
+                <div className="flex items-center gap-3">
+                  {node.online ? (
+                    <Wifi className="h-4 w-4 text-primary" />
+                  ) : (
+                    <WifiOff className="h-4 w-4 text-destructive" />
+                  )}
+                  <span className="text-sm font-medium text-card-foreground">{node.name}</span>
+                </div>
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                    node.online
+                      ? "bg-accent text-accent-foreground"
+                      : "bg-destructive/10 text-destructive"
+                  }`}
+                >
+                  {node.online ? "Online" : "Offline"}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </motion.div>
     </div>
   );

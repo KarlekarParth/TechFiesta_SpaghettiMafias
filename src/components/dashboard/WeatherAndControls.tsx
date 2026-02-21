@@ -1,37 +1,43 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Thermometer, CloudRain, Droplets, Wifi, WifiOff, ToggleLeft, ToggleRight, Loader2 } from "lucide-react";
-import { getZones } from "../../services/api";
+import { Thermometer, CloudRain, Droplets, Wifi, WifiOff, ToggleLeft, ToggleRight, Loader2, Wind } from "lucide-react";
+import { getZones, getWeatherData, WeatherData } from "../../services/api";
 
 const WeatherAndControls = () => {
   const [autoMode, setAutoMode] = useState(true);
   const [nodes, setNodes] = useState<any[]>([]);
+  const [weather, setWeather] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchNodes = async () => {
+    const fetchData = async () => {
       try {
-        const data = await getZones();
-        // Map backend zones to the node status format
-        // We assume that if a zone is returned by the API, the node is "Online"
-        const mappedNodes = data.map((zone: any) => ({
+        const [zonesData, weatherData] = await Promise.all([
+          getZones(),
+          getWeatherData()
+        ]);
+
+        setNodes(zonesData.map((zone: any) => ({
           name: zone.name || `Node ${zone.id}`,
-          online: zone.is_active !== false, // Defaults to true if field is missing
-        }));
-        setNodes(mappedNodes);
+          online: zone.is_active !== false,
+        })));
+
+        setWeather(weatherData);
       } catch (error) {
-        console.error("Failed to fetch node status:", error);
+        console.error("Failed to fetch dashboard data:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchNodes();
+    fetchData();
+    const interval = setInterval(fetchData, 60000); // Refresh every minute
+    return () => clearInterval(interval);
   }, []);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {/* Weather Card (Static until Weather API is added) */}
+      {/* Weather Card - NOW LIVE */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -39,35 +45,41 @@ const WeatherAndControls = () => {
         className="rounded-2xl bg-card p-6 shadow-card"
       >
         <h3 className="font-display text-lg font-bold text-card-foreground mb-4">Weather Preview</h3>
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent">
-              <Thermometer className="h-5 w-5 text-accent-foreground" />
+        {loading || !weather ? (
+          <div className="flex items-center justify-center py-10">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent">
+                <Thermometer className="h-5 w-5 text-accent-foreground" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Temperature</p>
+                <p className="text-lg font-bold text-card-foreground">{weather.temperature}°C</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Temperature</p>
-              <p className="text-lg font-bold text-card-foreground">28°C</p>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary/10">
+                <CloudRain className="h-5 w-5 text-secondary" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Rain (Last Hour)</p>
+                <p className="text-lg font-bold text-card-foreground">{weather.rain_mm} mm</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent">
+                <Droplets className="h-5 w-5 text-accent-foreground" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Humidity</p>
+                <p className="text-lg font-bold text-card-foreground">{weather.humidity}%</p>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary/10">
-              <CloudRain className="h-5 w-5 text-secondary" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Rain Forecast</p>
-              <p className="text-lg font-bold text-card-foreground">65% in 3h</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent">
-              <Droplets className="h-5 w-5 text-accent-foreground" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Humidity</p>
-              <p className="text-lg font-bold text-card-foreground">72%</p>
-            </div>
-          </div>
-        </div>
+        )}
       </motion.div>
 
       {/* Irrigation Mode */}

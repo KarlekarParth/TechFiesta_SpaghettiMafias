@@ -1,9 +1,16 @@
 import axios from "axios";
 
-// UPDATED: Points to your actual Render API
 const API = axios.create({
     baseURL: "https://smart-irrigation-api-cvo6.onrender.com",
 });
+
+export interface WeatherData {
+  temperature: number;
+  humidity: number;
+  wind_speed: number;
+  rain_mm: number;
+  et_15min: number;
+}
 
 export interface PredictionResponse {
   action: "WAIT" | "IRRIGATE";
@@ -23,5 +30,11 @@ export const getZones = async () => {
 
 export const getHistory = async () => {
   const res = await API.get("/history");
+  return res.data;
+};
+
+// NEW: Function to fetch live weather from your backend
+export const getWeatherData = async (): Promise<WeatherData> => {
+  const res = await API.get("/weather");
   return res.data;
 };
